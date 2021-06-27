@@ -6,11 +6,11 @@ After creating what's propably the one of the hardest blinking examples in the A
 
 I created the second task and made its blinking each *200ms* and as seen in the second GIF below, we successfully have a mess.
 
-<img src="images/normal.gif" width=960>
+<img src="images/normal.gif">
 
 > First GIF: Normal blinking each 500ms
 
-<img src="images/normal.gif" width=960>
+<img src="images/fuzz.gif">
 
 > Second GIF: Messy blinking
 
