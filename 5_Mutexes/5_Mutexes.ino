@@ -14,12 +14,16 @@ static SemaphoreHandle_t mutex;
 
 // Blinking Task
 void blink_led(void *params){
-  int local;
 
-  local = *(int*)params;
+  // Dereference the pointer and copy the param in local var
+  int local= *(int*)params;
+  
   // Copy the param to a local var
   Serial.printf("Received: %d\r\n", local);
 
+  // Give the mutex (make it available)
+  xSemaphoreGive(mutex);
+  
   pinMode(LED_PIN, OUTPUT);
   
   // Super-loop
@@ -29,15 +33,12 @@ void blink_led(void *params){
     digitalWrite(LED_PIN, 0);
     vTaskDelay(local / portTICK_PERIOD_MS);
   }
-
-  // Give the mutex (make it available)
-  xSemaphoreGive(mutex);
 }
 
 void setup() {
   
   // Local delay
-  long int delay_in = 200;
+  long int delay_in;
   
   Serial.begin(115200);
   // Give time for the serial connection to be established
@@ -63,7 +64,7 @@ void setup() {
   xTaskCreatePinnedToCore(        // xTaskCreate() in vanilla FreeRTOS
                 blink_led,        // Function to run
                 "PBlinky",        // Name of task
-                1024,             // Stack size (bytes in ESP32, words in FreeRTOS)
+                1200,             // Stack size (bytes in ESP32, words in FreeRTOS)
                 (void*)&delay_in, // Params to pass to function
                 1,                // Task priority (0 to configMAX_PRIORITIES -1)
                 NULL,             // Task handle
@@ -71,11 +72,9 @@ void setup() {
 
   // Wait till the mutex is returned the maximum time possible
   if(xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)Serial.println("Done!");
-                
-  // Delete "setup and loop" task
-  vTaskDelete(NULL);
 }
 
 void loop() {
-  // Nothing 
+  // Nothing (give the other tasks all the time by entering the blocked state indefinitely)
+  vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
