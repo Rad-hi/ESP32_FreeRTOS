@@ -8,7 +8,7 @@
 // Pins
 #define LED_PIN         16
 
-// PWM params
+// PWM params (reference: https://randomnerdtutorials.com/esp32-pwm-arduino-ide/)
 #define FREQUENCY       5000 // PWM signal frequency
 #define LED_CHANNEL     0    // PWM channel
 #define RESOLUTION      8    // Signal resolution in bits (8 --> [0, 255])
