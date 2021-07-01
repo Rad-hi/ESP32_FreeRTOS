@@ -53,6 +53,7 @@ void setup() {
                 NULL,           // Task handle
                 app_cpu);       // Run on one core
 
+  /*
   // 2nd Task to run forever 
   // (this should interrupt the other task's blinking pattern and introduce 
   // weird blinking patterns)
@@ -64,6 +65,7 @@ void setup() {
                 1,              // Task priority (0 to configMAX_PRIORITIES -1)
                 NULL,           // Task handle
                 app_cpu);       // Run on one core
+    */
 }
 
 void loop() {
