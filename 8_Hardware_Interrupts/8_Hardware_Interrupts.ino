@@ -31,6 +31,7 @@ static volatile int buff_l[AVG_LEN];        // Lower half of the double buffer
 static volatile int buff_h[AVG_LEN];        // Higher half of the double buffer
 static volatile float average = 0;          // The calculated average
 static SemaphoreHandle_t bin_sem = NULL;    // Signals to the task to calculate & print
+static portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED; // Spinlock to protect the average global var
 
 // ISR
 void IRAM_ATTR on_timer_isr(){
@@ -60,21 +61,29 @@ void IRAM_ATTR on_timer_isr(){
 
 // AVG calculator
 void avg(void* params){
+
+  float avg = 0;
+  
   while(1){
     // Can calculate
     xSemaphoreTake(bin_sem, portMAX_DELAY);
   
     if(which){ // Read from Low buffer
       for(int i = 0; i < AVG_LEN; i++){
-        average += buff_l[i];
+        avg += buff_l[i];
       }
     }
     else{     // Read from High buffer
       for(int i = 0; i < AVG_LEN; i++){
-        average += buff_h[i];
+        avg += buff_h[i];
       }
     }
-    average /= AVG_LEN; 
+
+    portENTER_CRITICAL(&spinlock);
+    average = avg / AVG_LEN;
+    portEXIT_CRITICAL(&spinlock);
+
+    avg = 0;
   }
 }
 
