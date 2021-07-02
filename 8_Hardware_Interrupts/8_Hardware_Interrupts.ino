@@ -29,17 +29,21 @@ static volatile uint8_t which = 0;          // Which buffer to write to
 static volatile uint8_t w_idx = 0;          // Writing index
 static volatile int buff_l[AVG_LEN];        // Lower half of the double buffer
 static volatile int buff_h[AVG_LEN];        // Higher half of the double buffer
+static volatile float average = 0;          // The calculated average
 static SemaphoreHandle_t bin_sem = NULL;    // Signals to the task to calculate & print
 
 // ISR
 void IRAM_ATTR on_timer_isr(){
 
+  BaseType_t task_woken = pdFALSE;
+
   int val = analogRead(ADC_PIN);
 
-  if(!which){       // Low buffer to be written to (which == 0 --> write to Low)
+  if(!which){       // Write to low buffer 
+                    // (which == 0 --> write to Low, read from High)
     buff_l[w_idx++] = val;
   }
-  else{             // High buffer to be written to 
+  else{             // Write to high buffer 
     buff_h[w_idx++] = val;
   }
 
@@ -47,12 +51,31 @@ void IRAM_ATTR on_timer_isr(){
     w_idx = 0;
     which = !which; // Flip the buffers
     
+    // Signal to calculating task to calculate avg
+    xSemaphoreGiveFromISR(bin_sem, &task_woken);
+
+    if(task_woken) portYIELD_FROM_ISR();
   }
 }
 
 // AVG calculator
 void avg(void* params){
-  xSemaphoreTake(bin_sem, xPort);
+  while(1){
+    // Can calculate
+    xSemaphoreTake(bin_sem, portMAX_DELAY);
+  
+    if(which){ // Read from Low buffer
+      for(int i = 0; i < AVG_LEN; i++){
+        average += buff_l[i];
+      }
+    }
+    else{     // Read from High buffer
+      for(int i = 0; i < AVG_LEN; i++){
+        average += buff_h[i];
+      }
+    }
+    average /= AVG_LEN; 
+  }
 }
 
 // No Serial call anywhere out of here 
@@ -96,11 +119,11 @@ void CLI(void *params){
         // Send string to printing task through msg_q
         xQueueSend(msg_q, (void*)&s, 0);
 
-        // Find delay command
+        // Find avg command
         uint8_t s_idx = String(s).indexOf("avg");
-        if(s_idx == 0){ // There's a delay command at bigennig of line
-          // Signal to calculating task to calculate and print
-          xSemaphoreGive(bin_sem);
+        if(s_idx == 0){ // There's an avg command at bigennig of line
+          String avg_ = String(average);
+          xQueueSend(msg_q, (void*)&avg_, 0);
         }
         
         // Clear buffer and reset index
@@ -130,18 +153,26 @@ void setup() {
   }
 
   // 1st Task to run forever --> Serial printer
-  xTaskCreatePinnedToCore(      // xTaskCreate() in vanilla FreeRTOS
-                print_messages, // Function to run
-                "Print msgs",    // Name of task
-                1024,           // Stack size (bytes in ESP32, words in FreeRTOS)
-                NULL,           // Params to pass to function
-                1,              // Task priority (0 to configMAX_PRIORITIES -1)
-                NULL,           // Task handle
-                app_cpu);       // Run on one core
+  xTaskCreatePinnedToCore(print_messages, // Function to run
+                          "Print msgs",    // Name of task
+                          1024,           // Stack size (bytes in ESP32, words in FreeRTOS)
+                          NULL,           // Params to pass to function
+                          1,              // Task priority (0 to configMAX_PRIORITIES -1)
+                          NULL,           // Task handle
+                          app_cpu);       // Run on one core
 
   // CLI task creation
   xTaskCreatePinnedToCore(CLI,
                           "CLI",
+                          1024,
+                          NULL,
+                          1,
+                          NULL,
+                          app_cpu);
+
+  // AVG calculator task creation
+  xTaskCreatePinnedToCore(avg,
+                          "AVG",
                           1024,
                           NULL,
                           1,
@@ -167,7 +198,5 @@ void setup() {
 }
 
 void loop() {
-  
-  // Do nothing but allow yielding to lower-priority tasks
-  vTaskDelay(1000 / portTICK_PERIOD_MS);
+  // Do nothing
 }
