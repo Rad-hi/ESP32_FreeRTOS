@@ -64,20 +64,9 @@ void eat(void *parameters) {
   num = *(int *)parameters;
   xSemaphoreGive(bin_sem);
 
-  switch(num){
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-      f = num;
-      s = (num + 4) % NUM_TASKS;
-    break;
-    case 4:
-      f = 0;
-      s = 4;
-    break;
-    default: break;
-  }
+  // First and second chopsticks to be picked
+  f = num;
+  s = (num + 4) % NUM_TASKS;
   
   // Take first chopstick
   xSemaphoreTake(chopstick[f], portMAX_DELAY);
